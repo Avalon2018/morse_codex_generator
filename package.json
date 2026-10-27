@@ -1,0 +1,14 @@
+{
+  "name": "morse-unit-transmitter",
+  "version": "1.0.0",
+  "description": "Morse code generator built on the time unit: 1 = tone, 0 = silence.",
+  "type": "module",
+  "main": "src/morse.js",
+  "bin": { "morse": "cli/morse.mjs" },
+  "scripts": {
+    "test": "node --test test/morse.test.mjs",
+    "start": "npx serve ."
+  },
+  "engines": { "node": ">=18" },
+  "keywords": ["morse", "morse-code", "telegraph", "audio", "web-audio"]
+}

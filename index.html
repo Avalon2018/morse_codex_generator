@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Morse Unit Transmitter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: operator's console. Message form and controls on top, paper-tape register of time units below. */
+:root {
+  --bg: #eef1f4; --panel: #ffffff; --tape: #f8fafb; --ink: #14202b; --muted: #5b6875; --line: #cfd7df;
+  --on: #14202b; --off: #e3e8ed; --accent: #d97a12; --accent-ink: #ffffff; --lamp-off: #c9d1d8; --warn: #9a4b00;
+  --display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f151b; --panel: #161e26; --tape: #121a21; --ink: #e5ebf0; --muted: #93a1ad; --line: #2a3640;
+  --on: #e5ebf0; --off: #222d37; --accent: #f0a23a; --accent-ink: #1a1206; --lamp-off: #2c3843; --warn: #f3b866; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f151b; --panel: #161e26; --tape: #121a21; --ink: #e5ebf0; --muted: #93a1ad; --line: #2a3640;
+  --on: #e5ebf0; --off: #222d37; --accent: #f0a23a; --accent-ink: #1a1206; --lamp-off: #2c3843; --warn: #f3b866; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 28px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+h1 { font: 700 clamp(30px, 5vw, 44px)/1 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 60ch; }
+.legend { display: flex; gap: 16px; font: 13px var(--mono); color: var(--muted); flex-wrap: wrap; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 14px; border-radius: 2px; display: inline-block; }
+.console { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 760px) { .console { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.label { font: 600 12px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+textarea { width: 100%; min-height: 104px; resize: vertical; font: 500 20px/1.4 var(--mono); text-transform: uppercase;
+  color: var(--ink); background: var(--tape); border: 1px solid var(--line); border-radius: 4px; padding: 12px; }
+textarea:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 500 13px var(--mono); padding: 6px 10px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; cursor: pointer; }
+.chip:hover { border-color: var(--ink); }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.btn { font: 700 18px var(--display); letter-spacing: .04em; text-transform: uppercase; padding: 10px 22px; border-radius: 4px; border: 1px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.ctl { display: grid; gap: 4px; }
+.ctl-head { display: flex; justify-content: space-between; align-items: baseline; }
+.ctl output { font: 600 15px var(--mono); font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.station { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; }
+.lamp { width: 64px; height: 64px; border-radius: 50%; background: var(--lamp-off); border: 3px solid var(--line); transition: background 30ms linear, box-shadow 30ms linear; }
+.lamp.on { background: var(--accent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 25%, transparent); }
+.now { font: 700 40px/1 var(--display); min-height: 40px; }
+.now small { display: block; font: 500 14px var(--mono); color: var(--muted); margin-top: 6px; min-height: 21px; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 0; }
+.stats div { display: grid; }
+.stats dt { font: 600 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.stats dd { margin: 0; font: 600 18px var(--mono); font-variant-numeric: tabular-nums; }
+.tape-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; display: grid; gap: 12px; min-width: 0; }
+.symbols { font: 500 18px/1.6 var(--mono); word-break: break-word; }
+.tape { display: flex; flex-wrap: wrap; gap: 14px 0; background: var(--tape); border: 1px solid var(--line); border-radius: 4px; padding: 14px; max-height: 340px; overflow-y: auto; }
+.grp { display: grid; gap: 4px; }
+.grp b { font: 600 12px var(--mono); color: var(--muted); height: 16px; }
+.cells { display: flex; }
+.c { width: 12px; height: 22px; margin-right: 2px; border-radius: 1px; background: var(--off); }
+.c.on { background: var(--on); }
+.c.cur { outline: 2px solid var(--accent); outline-offset: 1px; }
+.c.on.cur { background: var(--accent); }
+.bits { font: 13px var(--mono); color: var(--muted); word-break: break-all; max-height: 90px; overflow-y: auto; }
+.note { color: var(--warn); font-size: 14px; min-height: 0; }
+.foot { color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .lamp { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Morse Unit Transmitter</h1>
+      <p class="sub">Every character is built from one time unit: 1 is tone, 0 is silence. E sends one unit of tone; T sends three.</p>
+    </div>
+    <div class="legend" aria-label="Tape legend">
+      <span><i class="sw" style="background: var(--on)"></i>1 tone</span>
+      <span><i class="sw" style="background: var(--off)"></i>0 silence</span>
+      <span><i class="sw" style="background: var(--accent)"></i>sending</span>
+    </div>
+  </header>
+
+  <section class="console">
+    <form class="panel" id="form">
+      <label class="label" for="msg">Message</label>
+      <textarea id="msg" maxlength="400" spellcheck="false" autocomplete="off">What hath God wrought 1844</textarea>
+      <div class="chips" aria-label="Examples">
+        <button type="button" class="chip" data-t="E">E</button>
+        <button type="button" class="chip" data-t="T">T</button>
+        <button type="button" class="chip" data-t="SOS">SOS</button>
+        <button type="button" class="chip" data-t="<SOS>">&lt;SOS&gt; unbroken</button>
+        <button type="button" class="chip" data-t="PARIS">PARIS</button>
+        <button type="button" class="chip" data-t="CALL 911">CALL 911</button>
+        <button type="button" class="chip" data-t="PRICE 458.00">PRICE 458.00</button>
+      </div>
+      <div class="row">
+        <button type="submit" class="btn primary" id="send">Transmit</button>
+        <button type="button" class="btn" id="stop" disabled>Stop</button>
+      </div>
+      <p class="note" id="note" hidden></p>
+    </form>
+
+    <div class="panel">
+      <div class="station">
+        <div class="lamp" id="lamp" role="img" aria-label="Signal lamp"></div>
+        <div class="now" id="now" aria-live="polite">Ready<small id="nowcode">Press Transmit</small></div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label class="label" for="wpm">Speed</label><output id="wpmOut" for="wpm">20 wpm</output></div>
+        <input type="range" id="wpm" min="5" max="40" step="1" value="20">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label class="label" for="freq">Tone</label><output id="freqOut" for="freq">600 Hz</output></div>
+        <input type="range" id="freq" min="400" max="1000" step="10" value="600">
+      </div>
+      <dl class="stats">
+        <div><dt>1 unit</dt><dd id="sUnit">60 ms</dd></div>
+        <div><dt>Total units</dt><dd id="sUnits">0</dd></div>
+        <div><dt>Characters</dt><dd id="sChars">0</dd></div>
+        <div><dt>Air time</dt><dd id="sTime">0.0 s</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="tape-panel" aria-label="Transmission">
+    <div class="label">Morse</div>
+    <div class="symbols" id="symbols"></div>
+    <div class="label">Unit tape</div>
+    <div class="tape" id="tape"></div>
+    <div class="label">Unit stream</div>
+    <div class="bits" id="bits"></div>
+  </section>
+
+  <p class="foot">Timing follows ITU-R M.1677-1: dot 1 unit, dash 3, gaps of 1, 3 and 7. Speed uses the PARIS standard, so 1 unit = 1200 ÷ wpm milliseconds. Type prosigns in angle brackets, such as &lt;SOS&gt; or &lt;AR&gt;.</p>
+</div>
+
+<script type="module">
+import { encode, codeToUnits, toSymbols, unitMs, UNIT } from "./src/morse.js";
+
+const $ = (id) => document.getElementById(id);
+const msg = $("msg"), wpm = $("wpm"), freq = $("freq"), lamp = $("lamp"), tape = $("tape");
+let plan = null, ctx = null, osc = null, gain = null, raf = 0, cells = [];
+
+// Build the unit plan: one flat stream plus, for each unit, which character it belongs to.
+function build(text) {
+  const { words, unknown } = encode(text);
+  let units = "", owner = [], groups = [];
+  words.forEach((w, wi) => {
+    w.forEach((c, ci) => {
+      const body = codeToUnits(c.code);
+      const last = ci === w.length - 1;
+      const gap = last ? (wi === words.length - 1 ? "" : UNIT.WORD_GAP) : UNIT.LETTER_GAP;
+      groups.push({ char: c.char, code: c.code, start: units.length, units: body + gap });
+      for (let k = 0; k < body.length + gap.length; k++) owner.push(groups.length - 1);
+      units += body + gap;
+    });
+  });
+  return { units, owner, groups, unknown, chars: groups.length };
+}
+
+function render() {
+  plan = build(msg.value);
+  $("symbols").textContent = toSymbols(msg.value) || "Type a message to see its code.";
+  $("bits").textContent = plan.units || "—";
+  tape.replaceChildren();
+  cells = [];
+  for (const g of plan.groups) {
+    const grp = document.createElement("div"); grp.className = "grp";
+    const b = document.createElement("b"); b.textContent = g.char; grp.append(b);
+    const row = document.createElement("div"); row.className = "cells";
+    for (const u of g.units) {
+      const c = document.createElement("i"); c.className = "c" + (u === "1" ? " on" : "");
+      row.append(c); cells.push(c);
+    }
+    grp.append(row); tape.append(grp);
+  }
+  const ms = unitMs(+wpm.value);
+  $("wpmOut").textContent = `${wpm.value} wpm`;
+  $("freqOut").textContent = `${freq.value} Hz`;
+  $("sUnit").textContent = `${Math.round(ms)} ms`;
+  $("sUnits").textContent = plan.units.length;
+  $("sChars").textContent = plan.chars;
+  $("sTime").textContent = `${((plan.units.length * ms) / 1000).toFixed(1)} s`;
+  const note = $("note");
+  note.hidden = !plan.unknown.length;
+  note.textContent = plan.unknown.length ? `Skipped ${plan.unknown.join(" ")}: no Morse code for ${plan.unknown.length > 1 ? "these characters" : "this character"}.` : "";
+  $("send").disabled = !plan.units;
+}
+
+function stop() {
+  cancelAnimationFrame(raf);
+  if (osc) { try { gain.gain.cancelScheduledValues(ctx.currentTime); gain.gain.setTargetAtTime(0, ctx.currentTime, 0.003); osc.stop(ctx.currentTime + 0.05); } catch {} }
+  osc = null;
+  cells.forEach((c) => c.classList.remove("cur"));
+  lamp.classList.remove("on");
+  $("now").firstChild.textContent = "Ready";
+  $("nowcode").textContent = "Press Transmit";
+  $("send").disabled = !plan?.units; $("stop").disabled = true;
+}
+
+async function transmit() {
+  stop();
+  render();
+  if (!plan.units) return;
+  ctx ??= new (window.AudioContext || window.webkitAudioContext)();
+  if (ctx.state === "suspended") await ctx.resume();
+  const unit = unitMs(+wpm.value) / 1000, ramp = Math.min(0.005, unit / 4);
+  osc = ctx.createOscillator(); gain = ctx.createGain();
+  osc.frequency.value = +freq.value; osc.type = "sine";
+  gain.gain.value = 0; osc.connect(gain).connect(ctx.destination);
+  const t0 = ctx.currentTime + 0.08;
+  // Schedule each run of 1s as one tone, with soft edges to avoid clicks.
+  let i = 0;
+  while (i < plan.units.length) {
+    let j = i; while (j < plan.units.length && plan.units[j] === plan.units[i]) j++;
+    if (plan.units[i] === "1") {
+      const a = t0 + i * unit, b = t0 + j * unit;
+      gain.gain.setValueAtTime(0, a); gain.gain.linearRampToValueAtTime(0.5, a + ramp);
+      gain.gain.setValueAtTime(0.5, b - ramp); gain.gain.linearRampToValueAtTime(0, b);
+    }
+    i = j;
+  }
+  const end = t0 + plan.units.length * unit;
+  osc.start(t0); osc.stop(end + 0.05);
+  $("send").disabled = true; $("stop").disabled = false;
+  let prev = -1;
+  const tick = () => {
+    const idx = Math.floor((ctx.currentTime - t0) / unit);
+    if (ctx.currentTime >= end) { stop(); return; }
+    if (idx >= 0 && idx !== prev) {
+      if (prev >= 0 && cells[prev]) cells[prev].classList.remove("cur");
+      const c = cells[idx]; c.classList.add("cur");
+      if (idx % 40 === 0) c.scrollIntoView({ block: "nearest" });
+      lamp.classList.toggle("on", plan.units[idx] === "1");
+      const g = plan.groups[plan.owner[idx]];
+      $("now").firstChild.textContent = g.char;
+      $("nowcode").textContent = `${g.code.replace(/\./g, "·").replace(/-/g, "−")}  ${codeToUnits(g.code)}`;
+      prev = idx;
+    }
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+$("form").addEventListener("submit", (e) => { e.preventDefault(); transmit(); });
+$("stop").addEventListener("click", stop);
+msg.addEventListener("input", () => { stop(); render(); });
+wpm.addEventListener("input", render);
+freq.addEventListener("input", render);
+document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { msg.value = b.dataset.t; stop(); render(); msg.focus(); }));
+render();
+</script>
+
+</body>
+</html>
